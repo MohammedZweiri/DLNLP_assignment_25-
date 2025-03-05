@@ -9,11 +9,17 @@ import re
 from pathlib import Path
 import matplotlib.pyplot as plt
 import os
+from datasets import load_dataset
+from datasets import Dataset
+from transformers import T5Tokenizer
 import arabic_reshaper
 from bidi.algorithm import get_display
 import tensorflow as tf
+import string
+from string import digits
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
+from sklearn.model_selection import train_test_split
 
 
 
@@ -57,51 +63,50 @@ def load_dataset(dataset_path):
     """
     try:
 
-        with open(dataset_path, "r", encoding="utf-8") as file:
-            lines = file.readlines()
-        
-        data = [line.strip().split("\t")[:2] for line in lines]
+        dataset = load_dataset('Helsinki-NLP/tatoeba_mt', 'ara-eng')
 
-        df = pd.DataFrame(data, columns=["Eng", "Ar"])
+        df_train = pd.DataFrame(dataset['validation'])
+        df_test = pd.Dataframe(dataset['test'])
 
-        df['Ar'] = df['Ar'].apply(clean_arabic)
-        
-        #print(df["Ar"])
-        print(df.info()) 
-        #print(df.isnull().sum())
+        arabic_texts = df_train['sourceString']
+        english_texts = df_train['targetString']
+
+        return arabic_texts, english_texts
 
     except Exception as e:
         print(f"Downloading dataset failed. Error: {e}")
 
 
 
-def clean_arabic(text):
-    """Clean Arabic text.
-
-    This function performs data transform via normalization.
-
-    Args:
-            text.
-
-    Returns:
-            normalized training, validation and test datasets.
-
-    """
-
-    try:
-        
-        text = re.sub(r"[\u064B-\u065F]", "", text)
-        text = re.sub(r"[^\w\s]", "", text)
-        text = arabic_reshaper.reshape(text)
-        text = get_display(text)
-        return text
-
+def preprocess_function(arabic_text, english_text):
     
-    except Exception as e:
-        print(f"Cleaning Arabic text failed. Error: {e}")
+    arabic_texts = arabic_text.astype(str)
+    english_texts = english_text.astype(str)
 
+    # Lowercase all characters
+    english_texts = english_texts.apply(lambda x: x.lower() if isinstance(x, str) else x)
 
-def tokenization(df):
+    # Remove quotes
+    english_texts = english_texts.apply(lambda x: re.sub("'", '', x) if isinstance(x, str) else x)
+    arabic_texts = arabic_texts.apply(lambda x: re.sub("'", '', x) if isinstance(x, str) else x)
+
+    # Remove Digits
+    digits_removal = str.maketrans('', '', digits)
+    english_texts = english_texts.apply(lambda x: x.translate(digits_removal) if isinstance(x, str) else x)
+
+    # Remove extra spaces
+    english_texts = english_texts.apply(lambda x: x.strip() if isinstance(x, str) else x)
+    arabic_texts = arabic_texts.apply(lambda x: x.strip() if isinstance(x, str) else x)
+    english_texts = english_texts.apply(lambda x: re.sub(" +", " ", x) if isinstance(x, str) else x)
+    arabic_texts = arabic_texts.apply(lambda x: re.sub(" +", " ", x) if isinstance(x, str) else x)
+
+    # Add start and end tokens to target sequences
+    english_texts = english_texts.apply(lambda x : '<start> '+ x + ' <end> ' if isinstance(x, str) else x)
+    
+
+    return english_texts, arabic_texts
+
+def tokenization(english_texts, arabic_texts):
     """Save CNN model.
 
     This function saves CNN model and weights as json and .h5 files respectively.
@@ -115,34 +120,59 @@ def tokenization(df):
 
     try:
 
-        arabic_tokenizer = Tokenizer(filters="", oov_token="<UNK>")
-        english_tokenizer = Tokenizer(filters="", oov_token="<UNK>")
+        # Tokenizer for Arabic
+        arabic_tokenizer = T5Tokenizer.from_pretrained('t5-small')
 
-        print("Checkpoint 1")
-        arabic_tokenizer.fit_on_texts(df["Ar"])
-        english_tokenizer.fit_on_texts(df["Eng"])
+        # Tokenizer and pad Arabic sentences
+        arabic_sequences = arabic_tokenizer(arabic_texts.tolist(), padding='max_length')
+        input_ids = arabic_sequences['input_ids']
 
-        print("Checkpoint 2")
-        X_sequence = arabic_tokenizer.text_to_sequences(df['Ar'])
-        Y_sequence = english_tokenizer.text_to_sequences(df['Eng'])
+        # Tokenizer for English sentences
+        english_tokenizer = T5Tokenizer.from_pretrained('t5_small')
 
-        print("Checkpoint 3")
-        max_len_ar = max(len(seq) for seq in X_sequence)
-        max_len_en = max(len(seq) for seq in Y_sequence)
+        # Tokenize for pad English sentences
+        english_sequences = english_tokenizer(english_texts.tolist(), padding='max_length')
+        output_ids = english_sequences['input_ids']
 
-        print("Checkpoint 4")
-        X_padded = pad_sequences(X_sequence, maxlen=max_len_ar, padding="post")
-        Y_padded = pad_sequences(Y_sequence, maxlen=max_len_en, padding="post")
+        # Get Vocabulary Sizes
+        arabic_vocab_size = len(arabic_tokenizer.get_vocab())
+        english_vocab_size = len(english_tokenizer.get_vocab())
 
-        print("Checkpoint 5")
-        print("Arabic Vocabulary Size:", len(arabic_tokenizer.word_index))
-        print("English Vocabulary Size:", len(english_tokenizer.word_index))
+        # Prepare input and output data for training
+        encoder_input_data = input_ids
+        decoder_input_data = output_ids[:, :-1]
+        decoder_target_data = output_ids[:, 1:]
+
+        return encoder_input_data, decoder_input_data, decoder_target_data
 
     except Exception as e:
-        print(f"Text tokenization failed. Error: {e}")
+        print(f"tokenization failed. Error: {e}")
 
 
+def make_batches(ds, Buffer_size, Batch_size):
+    """Save CNN model.
 
+    This function saves CNN model and weights as json and .h5 files respectively.
+
+    Args:
+            CNN model
+            model_name(str)
+            
+
+    """
+
+    try:
+
+        return(
+            ds
+            .shuffle(Buffer_size)
+            .batch(Batch_size)
+            .map(prepare_batch, tf.data.AUTOTUNE)
+            .prefetch(buffer_size=tf.data.AUTOTUNE)
+        )
+
+    except Exception as e:
+        print(f"Make Batches failed. Error: {e}")
 
 
 def save_model(task_name,model, model_name):
