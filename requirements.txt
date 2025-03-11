@@ -1,3 +1,6 @@
 pandas
 numpy
 spacy
+datasets
+transformers
+SentencePiece
