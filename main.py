@@ -5,24 +5,32 @@
 
 from src import utils
 import argparse
+from model import transformers
 import numpy as np
 
 
-def task(dataset_path):
+def task():
     """ Runs the CNN model for bloodMNIST dataset
 
 
     """
 
-    print("################ Task B via CNN is starting ################")
+    print("################ NN Transformers training is starting ################")
     print('\n')
 
+    max_len = 20
+
     # Download the dataset
-    df = utils.load_dataset(dataset_path)
+    arabic_texts, english_texts, df_test = utils.download_dataset()
+
+    # Preprocess
+    english_texts, arabic_texts = utils.preprocess_function(arabic_texts, english_texts)
 
     # Tokenization
-    utils.tokenization(df)
+    encoder_input_data, decoder_input_data, decoder_target_data, arabic_vocab_size, english_vocab_size = utils.tokenization(english_texts, arabic_texts, max_len)
     
+    # Model Training
+    transformers.transformer_model_training(encoder_input_data, decoder_input_data, arabic_vocab_size, english_vocab_size, max_len, decoder_target_data)
 
     # # Run the CNN model
 
@@ -40,8 +48,7 @@ if __name__ == "__main__":
     # Create Datasets folder
     utils.create_directory("figures")
 
-    dataset_path = "ara.txt"
-    task(dataset_path)
+    task()
 
 
     
