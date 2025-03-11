@@ -8,9 +8,11 @@
 import pandas as pd
 import numpy as np
 import tensorflow as tf
+from keras.utils import  plot_model
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, Embedding, Dense, LayerNormalization, MultiHeadAttention, Dropout
 from keras.optimizers import Adam
+from src import utils
 
 
 # Parameters
@@ -93,16 +95,19 @@ def transformer(
 ):
     
     # Encoder
+    print("Encoding\n")
     encoder_inputs = Input(shape=(max_len,), name="encoder_inputs")
     encoder_embedding = Embedding(arabic_vocab_size, embedding_dim, name="encoder_embedding")(encoder_inputs)
 
     # Add positional encoding
+    print("Add positional encoding\n")
     pos_encoding = positional_encoding(max_len, embedding_dim)
     encoder_embedding = encoder_embedding + pos_encoding[:max_len, :]
 
     encoder_outputs = Dropout(dropout_rate)(encoder_embedding)
 
     # Stack encoder layers
+    print("Stack encoder layers\n")
     for i in range(num_encoder_layers):
         encoder_layer_instance = encoder_layer(
             ff_dim, embedding_dim, num_heads, dropout_rate, name=f"encoder_layer_{i}"
@@ -110,14 +115,17 @@ def transformer(
         encoder_outputs = encoder_layer_instance(encoder_outputs)
 
     # Decoder
+    print("Decoders\n")
     decoder_inputs = Input(shape=(max_len - 1,), name="decoder_inputs")
-    decoder_embedding = Embedding(english_vocab_size, embedding_dim, name="decoder_embedding")
+    decoder_embedding = Embedding(english_vocab_size, embedding_dim, name="decoder_embedding")(decoder_inputs)
 
-    # Add positional encoding
+    # Add positional decoding
+    print("Add positional decoding\n")
     decoder_embedding = decoder_embedding + pos_encoding[:max_len-1, :]
     decoder_outputs = Dropout(dropout_rate)(decoder_embedding)
 
     # Stack decoder layers
+    print("Stack decoder layers\n")
     for i in range(num_decoder_layers):
         decoder_layer_instance = decoder_layer(
             ff_dim, embedding_dim, num_heads, dropout_rate, name=f"decoder_layer_{i}"
@@ -125,6 +133,7 @@ def transformer(
         decoder_outputs = decoder_layer_instance([decoder_outputs, encoder_outputs])
 
     # Final output layer
+    print("Final output layer\n")
     outputs = Dense(english_vocab_size, activation="softmax")(decoder_outputs)
 
     model = Model([encoder_inputs, decoder_inputs], outputs)
@@ -177,7 +186,7 @@ def evaluate_model(true_labels, predicted_labels, predict_probs, label_names):
 
 
 
-def transformer_model_training(train_dataset, validation_dataset, test_dataset):
+def transformer_model_training(encoder_input_data, decoder_input_data, arabic_vocab_size, english_vocab_size, max_len, decoder_target_data):
     """CNN model training
 
     This function trains the CNN model and tests it on the dataset. Then, it will evaluate it and produce the accuracy and plot loss.
@@ -209,35 +218,29 @@ def transformer_model_training(train_dataset, validation_dataset, test_dataset):
 
         # Plot the CNN model
         plot_model(model, 
-                to_file='B/figures/CNN_Model_testB_add.png', 
+                to_file='./figures/Transformers_Model_test_1.png', 
                 show_shapes=True,
                 show_layer_activations=True)
 
         # Compile the CNN model
         model.compile(loss='sparse_categorical_crossentropy',
-                optimizer=Adam(learning_rate=0.001),
+                optimizer=Adam(),
                 metrics=['accuracy'])
         
-        # Handle the class imbalance.
-        weights = class_imbalance_handling(train_dataset)
+
 
         # Fit the CNN model
-        history = model.fit(train_dataset.imgs, train_labels, 
-                epochs=40,
-                callbacks=[tf.keras.callbacks.EarlyStopping(patience=10)],
-                validation_data=(validation_dataset.imgs, val_labels),
-                batch_size=32,
-                shuffle=True,
-                class_weight=weights)
+        history = model.fit([encoder_input_data, decoder_input_data], 
+                            decoder_target_data,
+                            epochs=20,
+                            callbacks=[tf.keras.callbacks.EarlyStopping(patience=5)],
+                            batch_size=32)
         
         # save the CNN model
-        utils.save_model("B",model, "CNN_model_taskB_final_add")
+        utils.save_model(model, "Transformers_model_task_final_1")
 
         # Evaluate the model
-        test_dataset_prob = model.predict(test_dataset.imgs, verbose=0)
-        test_predict_labels = np.argmax(test_dataset_prob, axis=-1)
-        evaluate_model(test_dataset.labels, test_predict_labels, test_dataset_prob, class_labels)
-        utils.plot_accuray_loss("B",history)
+        utils.plot_accuray_loss(history)
 
     except Exception as e:
         print(f"Training and saving the CNN model failed. Error: {e}")

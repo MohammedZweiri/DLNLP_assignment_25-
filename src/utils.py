@@ -12,13 +12,9 @@ import os
 from datasets import load_dataset
 from datasets import Dataset
 from transformers import T5Tokenizer
-import arabic_reshaper
-from bidi.algorithm import get_display
 import tensorflow as tf
 import string
 from string import digits
-from tensorflow.keras.preprocessing.text import Tokenizer
-from tensorflow.keras.preprocessing.sequence import pad_sequences
 from sklearn.model_selection import train_test_split
 
 
@@ -49,7 +45,7 @@ def create_directory(directory):
 
 
 
-def load_dataset(dataset_path):
+def download_dataset():
     """Download dataset.
 
     This function downloads the BloodMNIST dataset from the medmnist library
@@ -63,15 +59,15 @@ def load_dataset(dataset_path):
     """
     try:
 
-        dataset = load_dataset('Helsinki-NLP/tatoeba_mt', 'ara-eng')
+        dataset = load_dataset('Helsinki-NLP/tatoeba_mt', 'ara-eng', trust_remote_code=True)
 
         df_train = pd.DataFrame(dataset['validation'])
-        df_test = pd.Dataframe(dataset['test'])
+        df_test = pd.DataFrame(dataset['test'])
 
         arabic_texts = df_train['sourceString']
         english_texts = df_train['targetString']
 
-        return arabic_texts, english_texts
+        return arabic_texts, english_texts, df_test
 
     except Exception as e:
         print(f"Downloading dataset failed. Error: {e}")
@@ -106,7 +102,7 @@ def preprocess_function(arabic_text, english_text):
 
     return english_texts, arabic_texts
 
-def tokenization(english_texts, arabic_texts):
+def tokenization(english_texts, arabic_texts, max_len):
     """Save CNN model.
 
     This function saves CNN model and weights as json and .h5 files respectively.
@@ -124,14 +120,14 @@ def tokenization(english_texts, arabic_texts):
         arabic_tokenizer = T5Tokenizer.from_pretrained('t5-small')
 
         # Tokenizer and pad Arabic sentences
-        arabic_sequences = arabic_tokenizer(arabic_texts.tolist(), padding='max_length')
+        arabic_sequences = arabic_tokenizer(arabic_texts.tolist(), padding='max_length', truncation=True, max_length=max_len, return_tensors='tf')
         input_ids = arabic_sequences['input_ids']
 
         # Tokenizer for English sentences
-        english_tokenizer = T5Tokenizer.from_pretrained('t5_small')
+        english_tokenizer = T5Tokenizer.from_pretrained('t5-small')
 
         # Tokenize for pad English sentences
-        english_sequences = english_tokenizer(english_texts.tolist(), padding='max_length')
+        english_sequences = english_tokenizer(english_texts.tolist(), padding='max_length', truncation=True, max_length=max_len, return_tensors='tf')
         output_ids = english_sequences['input_ids']
 
         # Get Vocabulary Sizes
@@ -143,39 +139,13 @@ def tokenization(english_texts, arabic_texts):
         decoder_input_data = output_ids[:, :-1]
         decoder_target_data = output_ids[:, 1:]
 
-        return encoder_input_data, decoder_input_data, decoder_target_data
+        return encoder_input_data, decoder_input_data, decoder_target_data, arabic_vocab_size, english_vocab_size
 
     except Exception as e:
         print(f"tokenization failed. Error: {e}")
 
 
-def make_batches(ds, Buffer_size, Batch_size):
-    """Save CNN model.
-
-    This function saves CNN model and weights as json and .h5 files respectively.
-
-    Args:
-            CNN model
-            model_name(str)
-            
-
-    """
-
-    try:
-
-        return(
-            ds
-            .shuffle(Buffer_size)
-            .batch(Batch_size)
-            .map(prepare_batch, tf.data.AUTOTUNE)
-            .prefetch(buffer_size=tf.data.AUTOTUNE)
-        )
-
-    except Exception as e:
-        print(f"Make Batches failed. Error: {e}")
-
-
-def save_model(task_name,model, model_name):
+def save_model(model, model_name):
     """Save CNN model.
 
     This function saves CNN model and weights as json and .h5 files respectively.
@@ -193,14 +163,14 @@ def save_model(task_name,model, model_name):
         model_structure = model.to_json()
 
         # Creates a json file and writes the json model structure
-        file_path = Path(f"{task_name}/model/{model_name}.json")
+        file_path = Path(f"./model/{model_name}.json")
         file_path.write_text(model_structure)
 
         # Saves the weights as .h5 file
-        model.save_weights(f"{task_name}/model/{model_name}.weights.h5")
+        model.save_weights(f"./model/{model_name}.weights.h5")
 
     except Exception as e:
-        print(f"Saving the CNN model failed. Error: {e}")
+        print(f"Saving the Transformer model failed. Error: {e}")
 
 
 
@@ -236,7 +206,7 @@ def load_model(task_name, model_name):
 
 
 
-def plot_accuray_loss(task_name, model_history):
+def plot_accuray_loss(model_history):
     """Plot accuracy loss graphs for the CNN model.
 
     This function plots the CNN model's accuracy and loss against epoch into a fig file.
@@ -275,7 +245,7 @@ def plot_accuray_loss(task_name, model_history):
         ax2.grid()
 
         # Save the subplots file.
-        fig.savefig(f'{task_name}/figures/CNN_accuracy_loss.png')
+        fig.savefig(f'./figures/Transformers_accuracy_loss_1.png')
     
     except Exception as e:
         print(f"Plotting accuracy and loss has failed. Error: {e}")
