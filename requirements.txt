@@ -4,3 +4,5 @@ spacy
 datasets
 transformers
 SentencePiece
+keras_nlp
+tensorflow
