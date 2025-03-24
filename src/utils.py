@@ -9,13 +9,17 @@ import re
 from pathlib import Path
 import matplotlib.pyplot as plt
 import os
-from datasets import load_dataset
-from datasets import Dataset
+import arabic_reshaper
+from unicodedata import normalize
+from bidi.algorithm import get_display
+# from datasets import load_dataset
+# from datasets import Dataset
 from transformers import T5Tokenizer
 import tensorflow as tf
-import string
+from tensorflow import keras
+# import string
 from string import digits
-from sklearn.model_selection import train_test_split
+# from sklearn.model_selection import train_test_split
 
 
 
@@ -59,50 +63,67 @@ def download_dataset():
     """
     try:
 
-        dataset = load_dataset('Helsinki-NLP/tatoeba_mt', 'ara-eng', trust_remote_code=True)
+        # dataset = load_dataset('Helsinki-NLP/tatoeba_mt', 'ara-eng', trust_remote_code=True)
 
-        df_train = pd.DataFrame(dataset['validation'])
-        df_test = pd.DataFrame(dataset['test'])
+        # df_train = pd.DataFrame(dataset['validation'])
+        # df_test = pd.DataFrame(dataset['test'])
 
-        arabic_texts = df_train['sourceString']
-        english_texts = df_train['targetString']
+        # arabic_texts = df_train['sourceString']
+        # english_texts = df_train['targetString']
 
-        return arabic_texts, english_texts, df_test
+        # return arabic_texts, english_texts, df_test
+
+        dataframe = pd.read_csv('ara_eng.txt', names=['en','ar'], usecols=['en', 'ar'], sep='\t')
+        dataframe = dataframe.sample(frac=1, random_state=42)
+        dataframe = dataframe.reset_index(drop=True)
+        df_train = dataframe.iloc[:21000]
+        df_test = dataframe.iloc[21000:]
+
+        #print(dataframe)
+        return df_train, df_test
 
     except Exception as e:
         print(f"Downloading dataset failed. Error: {e}")
 
 
+def clean_english_text(text):
+    text = normalize('NFD', text.lower())
+    text = re.sub('[^A-Za-z ]+', '', text)
+    return text
 
-def preprocess_function(arabic_text, english_text):
-    
-    arabic_texts = arabic_text.astype(str)
-    english_texts = english_text.astype(str)
+def remove_diacritics(text):
+    arabic_diacritics = re.compile(r'[\u0617-\u061A\u064B-\u0652]')
+    text = re.sub(arabic_diacritics, '', text)
+    return text
 
-    # Lowercase all characters
-    english_texts = english_texts.apply(lambda x: x.lower() if isinstance(x, str) else x)
+def clean_arabic_text(text):
+    text = remove_diacritics(text)
+    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r'\d+', '', text)
+    text = re.sub(r'[^\u0600-\u06FF\s]', '', text)
+    text = re.sub(r'[،؛؟.!"#$%&\'()*+,-/:;<=>?@[\]^_`{|}~]', '', text)
+    return text
 
-    # Remove quotes
-    english_texts = english_texts.apply(lambda x: re.sub("'", '', x) if isinstance(x, str) else x)
-    arabic_texts = arabic_texts.apply(lambda x: re.sub("'", '', x) if isinstance(x, str) else x)
+def clean_and_prepare_text(text):
+    text = '[Start] '+clean_arabic_text(text) + ' [end]'
+    return text
 
-    # Remove Digits
-    digits_removal = str.maketrans('', '', digits)
-    english_texts = english_texts.apply(lambda x: x.translate(digits_removal) if isinstance(x, str) else x)
+def scan_phrases(arabic, english):
+    en = english
+    ar = arabic
 
-    # Remove extra spaces
-    english_texts = english_texts.apply(lambda x: x.strip() if isinstance(x, str) else x)
-    arabic_texts = arabic_texts.apply(lambda x: x.strip() if isinstance(x, str) else x)
-    english_texts = english_texts.apply(lambda x: re.sub(" +", " ", x) if isinstance(x, str) else x)
-    arabic_texts = arabic_texts.apply(lambda x: re.sub(" +", " ", x) if isinstance(x, str) else x)
+    en_max_len = max(len(line.split()) for line in en)
+    ar_max_len = max(len(line.split()) for line in ar)
+    sequence_len = max(en_max_len, ar_max_len)
 
-    # Add start and end tokens to target sequences
-    english_texts = english_texts.apply(lambda x : '<start> '+ x + ' <end> ' if isinstance(x, str) else x)
-    
+    print(f'Max phrase length (English): {en_max_len}')
+    print(f'Max phrase length (Arabic): {ar_max_len}')
+    print(f'Sequence length: {sequence_len}')
 
-    return english_texts, arabic_texts
+    return sequence_len
 
-def tokenization(english_texts, arabic_texts, max_len):
+
+def tokenization(english_texts, arabic_texts, sequence_len):
     """Save CNN model.
 
     This function saves CNN model and weights as json and .h5 files respectively.
@@ -117,29 +138,45 @@ def tokenization(english_texts, arabic_texts, max_len):
     try:
 
         # Tokenizer for Arabic
-        arabic_tokenizer = T5Tokenizer.from_pretrained('t5-small')
+        ar_tokenizer = T5Tokenizer.from_pretrained('t5-small')
+        #ar_tokenizer = tf.keras.preprocessing.text.Tokenizer(filters='!"#$%&()*+,-./:;<=>?@[\\]^_`{|}~\t\n')
 
         # Tokenizer and pad Arabic sentences
-        arabic_sequences = arabic_tokenizer(arabic_texts.tolist(), padding='max_length', truncation=True, max_length=max_len, return_tensors='tf')
-        input_ids = arabic_sequences['input_ids']
+        # arabic_sequences = arabic_tokenizer(arabic_texts.tolist(), padding='max_length', truncation=True, max_length=max_len, return_tensors='tf')
+        # input_ids = arabic_sequences['input_ids']
 
+        #ar_tokenizer.fit_on_texts(arabic_texts)
+        #ar_sequences = ar_tokenizer.texts_to_sequences(arabic_texts)
+        ar_x = ar_tokenizer(arabic_texts.tolist(), max_length=sequence_len, padding='max_length', truncation=True, return_tensors='tf')
+        ar_x = ar_x['input_ids']
+        print(f"Arabic Tokenization Completed!!")
         # Tokenizer for English sentences
         english_tokenizer = T5Tokenizer.from_pretrained('t5-small')
 
-        # Tokenize for pad English sentences
-        english_sequences = english_tokenizer(english_texts.tolist(), padding='max_length', truncation=True, max_length=max_len, return_tensors='tf')
-        output_ids = english_sequences['input_ids']
+        # # Tokenize for pad English sentences
+        en_y = english_tokenizer(english_texts.tolist(), padding='max_length', truncation=True, max_length=sequence_len+1, return_tensors='tf')
+        en_y = en_y['input_ids']
+        # en_tokenizer = tf.keras.layers.TextVectorization(output_sequence_length=sequence_len+1)
+        # en_tokenizer.adapt(english_texts)
+        # en_y = en_tokenizer(english_texts)
+        # en_y = en_y.numpy()
 
+        print(f"English Tokenization Completed!!")
         # Get Vocabulary Sizes
-        arabic_vocab_size = len(arabic_tokenizer.get_vocab())
+        arabic_vocab_size = len(ar_tokenizer.get_vocab())
         english_vocab_size = len(english_tokenizer.get_vocab())
 
         # Prepare input and output data for training
-        encoder_input_data = input_ids
-        decoder_input_data = output_ids[:, :-1]
-        decoder_target_data = output_ids[:, 1:]
+        # encoder_input_data = input_ids
+        # decoder_input_data = output_ids[:, :-1]
+        # decoder_target_data = output_ids[:, 1:]
 
-        return encoder_input_data, decoder_input_data, decoder_target_data, arabic_vocab_size, english_vocab_size
+        inputs = {'encoder_input': ar_x, 'decoder_input': en_y[:, :-1]}
+        outputs= en_y[:, 1:]
+        print(inputs)
+        print(outputs)
+
+        return inputs, outputs, arabic_vocab_size, english_vocab_size
 
     except Exception as e:
         print(f"tokenization failed. Error: {e}")
