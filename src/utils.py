@@ -9,9 +9,9 @@ import re
 from pathlib import Path
 import matplotlib.pyplot as plt
 import os
-import arabic_reshaper
+#import arabic_reshaper
 from unicodedata import normalize
-from bidi.algorithm import get_display
+#from bidi.algorithm import get_display
 # from datasets import load_dataset
 # from datasets import Dataset
 from transformers import T5Tokenizer
