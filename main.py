@@ -21,16 +21,30 @@ def task():
     max_len = 20
 
     # Download the dataset
-    arabic_texts, english_texts, df_test = utils.download_dataset()
+    df_train, df_test = utils.download_dataset()
 
-    # Preprocess
-    english_texts, arabic_texts = utils.preprocess_function(arabic_texts, english_texts)
+    # Clean and prepare english and arabic text
+    df_train['en'] = df_train['en'].apply(lambda row: utils.clean_english_text(row))
+    df_train['ar'] = df_train['ar'].apply(lambda row: utils.clean_and_prepare_text(row))
+
+    print(df_train)
+
+    # Scan the phrases
+    sequence_len = utils.scan_phrases(df_train['en'], df_train['ar'])
 
     # Tokenization
-    encoder_input_data, decoder_input_data, decoder_target_data, arabic_vocab_size, english_vocab_size = utils.tokenization(english_texts, arabic_texts, max_len)
+    inputs, outputs, arabic_vocab_size, english_vocab_size = utils.tokenization(df_train['en'], df_train['ar'], sequence_len)
+
+    # Model Training
+    transformers.transformer_model_training(inputs, outputs, arabic_vocab_size, english_vocab_size, sequence_len)
+    # Preprocess
+    #english_texts, arabic_texts = utils.preprocess_function(arabic_texts, english_texts)
+
+    # Tokenization
+   # encoder_input_data, decoder_input_data, decoder_target_data, arabic_vocab_size, english_vocab_size = utils.tokenization(english_texts, arabic_texts, max_len)
     
     # Model Training
-    transformers.transformer_model_training(encoder_input_data, decoder_input_data, arabic_vocab_size, english_vocab_size, max_len, decoder_target_data)
+    #transformers.transformer_model_training(encoder_input_data, decoder_input_data, arabic_vocab_size, english_vocab_size, max_len, decoder_target_data)
 
     # # Run the CNN model
 
