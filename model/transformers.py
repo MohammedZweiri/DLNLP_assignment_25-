@@ -4,141 +4,138 @@
     classes of the blood diseases.
 
     """
-
-import pandas as pd
-import numpy as np
+from tensorflow import keras
 import tensorflow as tf
 from keras.utils import  plot_model
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, Embedding, Dense, LayerNormalization, MultiHeadAttention, Dropout
+from keras.models import Model
+from keras.layers import Input, Embedding, Dense, LayerNormalization, MultiHeadAttention, Dropout
+import numpy as np
+from keras_nlp.layers import TokenAndPositionEmbedding, TransformerEncoder
+from keras_nlp.layers import TransformerDecoder
 from keras.optimizers import Adam
 from src import utils
 
 
-# Parameters
-embedding_dim = 256
-num_heads = 8
-ff_dim = 2048
-dropout_rate = 0.1
 
 
-def positional_encoding(length, depth):
 
-    depth = depth/2
-    positions = np.arange(length)[:, np.newaxis]
-    depths = np.arange(depth)[np.newaxis, :]/depth
-    angle_rates = 1 / (1000**depths)
-    angle_rads = positions * angle_rates
-    pos_encoding = np.concatenate([np.sin(angle_rads), np.cos(angle_rads)], axis=-1)
+# def positional_encoding(length, depth):
 
-    return tf.cast(pos_encoding, dtype=tf.float32)
+#     depth = depth/2
+#     positions = np.arange(length)[:, np.newaxis]
+#     depths = np.arange(depth)[np.newaxis, :]/depth
+#     angle_rates = 1 / (1000**depths)
+#     angle_rads = positions * angle_rates
+#     pos_encoding = np.concatenate([np.sin(angle_rads), np.cos(angle_rads)], axis=-1)
 
-
-def encoder_layer(units, d_model, num_heads, dropout, name="encoder_layer"):
-
-    inputs = Input(shape=(None, d_model), name=f"{name}_inputs")
-
-    # Self-attention
-    attention = MultiHeadAttention(
-        num_heads=num_heads, key_dim=d_model // num_heads, name=f"{name}_attention"
-    )(inputs, inputs)
-    attention = Dropout(dropout, name=f"{name}_attention_dropout")(attention)
-    attention = LayerNormalization(epsilon=1e-6, name=f"{name}_attention_layernorm")(inputs + attention)
-
-    # Feed-forward
-    outputs = Dense(units, activation="relu", name=f"{name}_dense_1")(attention)
-    outputs = Dense(d_model, name=f"{name}_dense_2")(outputs)
-    outputs = Dropout(dropout, name=f"{name}_outputs_dropout")(outputs)
-    outputs = LayerNormalization(epsilon=1e-6, name=f"{name}_outputs_layernorm")(attention + outputs)
-
-    return Model(inputs=inputs, outputs=outputs, name=name)
+#     return tf.cast(pos_encoding, dtype=tf.float32)
 
 
-def decoder_layer(units, d_model, num_heads, dropout, name="decoder_layer"):
+# def encoder_layer(units, d_model, num_heads, dropout, name="encoder_layer"):
 
-    inputs = Input(shape=(None, d_model), name=f"{name}_inputs")
-    enc_outputs = Input(shape=(None, d_model), name=f"{name}_encoder_outputs")
+#     inputs = Input(shape=(None, d_model), name=f"{name}_inputs")
 
-    # Self-attention
-    attention1 = MultiHeadAttention(
-        num_heads=num_heads, key_dim=d_model // num_heads, name=f"{name}_attention_1"
-    )(inputs, inputs, use_causal_mask=True)
-    attention1 = LayerNormalization(epsilon=1e-6, name=f"{name}_attention_1_layernorm")(inputs + attention1)
+#     # Self-attention
+#     attention = MultiHeadAttention(
+#         num_heads=num_heads, key_dim=d_model // num_heads, name=f"{name}_attention"
+#     )(inputs, inputs)
+#     attention = Dropout(dropout, name=f"{name}_attention_dropout")(attention)
+#     attention = LayerNormalization(epsilon=1e-6, name=f"{name}_attention_layernorm")(inputs + attention)
 
-    # Cross-attention
-    attention2 = MultiHeadAttention(
-        num_heads=num_heads, key_dim=d_model // num_heads, name=f"{name}_attention_2"
-    )(attention1, enc_outputs)
-    attention2 = Dropout(dropout, name=f"{name}_attention_dropout")(attention2)
-    attention2 = LayerNormalization(epsilon=1e-6, name=f"{name}_attention_layernorm")(attention1 + attention2)
+#     # Feed-forward
+#     outputs = Dense(units, activation="relu", name=f"{name}_dense_1")(attention)
+#     outputs = Dense(d_model, name=f"{name}_dense_2")(outputs)
+#     outputs = Dropout(dropout, name=f"{name}_outputs_dropout")(outputs)
+#     outputs = LayerNormalization(epsilon=1e-6, name=f"{name}_outputs_layernorm")(attention + outputs)
 
-
-    # Feed-forward
-    outputs = Dense(units, activation="relu", name=f"{name}_dense_1")(attention2)
-    outputs = Dense(d_model, name=f"{name}_dense_2")(outputs)
-    outputs = Dropout(dropout, name=f"{name}_outputs_dropout")(outputs)
-    outputs = LayerNormalization(epsilon=1e-6, name=f"{name}_outputs_layernorm")(attention2 + outputs)
-
-    return Model(inputs=[inputs, enc_outputs], outputs=outputs, name=name)
+#     return Model(inputs=inputs, outputs=outputs, name=name)
 
 
-def transformer(
-    arabic_vocab_size,
-    english_vocab_size,
-    max_len,
-    embedding_dim = 256,
-    num_heads = 8,
-    ff_dim = 2048,
-    num_encoder_layers = 6,
-    num_decoder_layers = 6,
-    dropout_rate=0.1
-):
+# def decoder_layer(units, d_model, num_heads, dropout, name="decoder_layer"):
+
+#     inputs = Input(shape=(None, d_model), name=f"{name}_inputs")
+#     enc_outputs = Input(shape=(None, d_model), name=f"{name}_encoder_outputs")
+
+#     # Self-attention
+#     attention1 = MultiHeadAttention(
+#         num_heads=num_heads, key_dim=d_model // num_heads, name=f"{name}_attention_1"
+#     )(inputs, inputs, use_causal_mask=True)
+#     attention1 = LayerNormalization(epsilon=1e-6, name=f"{name}_attention_1_layernorm")(inputs + attention1)
+
+#     # Cross-attention
+#     attention2 = MultiHeadAttention(
+#         num_heads=num_heads, key_dim=d_model // num_heads, name=f"{name}_attention_2"
+#     )(attention1, enc_outputs)
+#     attention2 = Dropout(dropout, name=f"{name}_attention_dropout")(attention2)
+#     attention2 = LayerNormalization(epsilon=1e-6, name=f"{name}_attention_layernorm")(attention1 + attention2)
+
+
+#     # Feed-forward
+#     outputs = Dense(units, activation="relu", name=f"{name}_dense_1")(attention2)
+#     outputs = Dense(d_model, name=f"{name}_dense_2")(outputs)
+#     outputs = Dropout(dropout, name=f"{name}_outputs_dropout")(outputs)
+#     outputs = LayerNormalization(epsilon=1e-6, name=f"{name}_outputs_layernorm")(attention2 + outputs)
+
+#     return Model(inputs=[inputs, enc_outputs], outputs=outputs, name=name)
+
+
+# def transformer(
+#     arabic_vocab_size,
+#     english_vocab_size,
+#     max_len,
+#     embedding_dim = 256,
+#     num_heads = 8,
+#     ff_dim = 2048,
+#     num_encoder_layers = 6,
+#     num_decoder_layers = 6,
+#     dropout_rate=0.1
+# ):
     
-    # Encoder
-    print("Encoding\n")
-    encoder_inputs = Input(shape=(max_len,), name="encoder_inputs")
-    encoder_embedding = Embedding(arabic_vocab_size, embedding_dim, name="encoder_embedding")(encoder_inputs)
+#     # Encoder
+#     print("Encoding\n")
+#     encoder_inputs = Input(shape=(max_len,), name="encoder_inputs")
+#     encoder_embedding = Embedding(arabic_vocab_size, embedding_dim, name="encoder_embedding")(encoder_inputs)
 
-    # Add positional encoding
-    print("Add positional encoding\n")
-    pos_encoding = positional_encoding(max_len, embedding_dim)
-    encoder_embedding = encoder_embedding + pos_encoding[:max_len, :]
+#     # Add positional encoding
+#     print("Add positional encoding\n")
+#     pos_encoding = positional_encoding(max_len, embedding_dim)
+#     encoder_embedding = encoder_embedding + pos_encoding[:max_len, :]
 
-    encoder_outputs = Dropout(dropout_rate)(encoder_embedding)
+#     encoder_outputs = Dropout(dropout_rate)(encoder_embedding)
 
-    # Stack encoder layers
-    print("Stack encoder layers\n")
-    for i in range(num_encoder_layers):
-        encoder_layer_instance = encoder_layer(
-            ff_dim, embedding_dim, num_heads, dropout_rate, name=f"encoder_layer_{i}"
-        )
-        encoder_outputs = encoder_layer_instance(encoder_outputs)
+#     # Stack encoder layers
+#     print("Stack encoder layers\n")
+#     for i in range(num_encoder_layers):
+#         encoder_layer_instance = encoder_layer(
+#             ff_dim, embedding_dim, num_heads, dropout_rate, name=f"encoder_layer_{i}"
+#         )
+#         encoder_outputs = encoder_layer_instance(encoder_outputs)
 
-    # Decoder
-    print("Decoders\n")
-    decoder_inputs = Input(shape=(max_len - 1,), name="decoder_inputs")
-    decoder_embedding = Embedding(english_vocab_size, embedding_dim, name="decoder_embedding")(decoder_inputs)
+#     # Decoder
+#     print("Decoders\n")
+#     decoder_inputs = Input(shape=(max_len - 1,), name="decoder_inputs")
+#     decoder_embedding = Embedding(english_vocab_size, embedding_dim, name="decoder_embedding")(decoder_inputs)
 
-    # Add positional decoding
-    print("Add positional decoding\n")
-    decoder_embedding = decoder_embedding + pos_encoding[:max_len-1, :]
-    decoder_outputs = Dropout(dropout_rate)(decoder_embedding)
+#     # Add positional decoding
+#     print("Add positional decoding\n")
+#     decoder_embedding = decoder_embedding + pos_encoding[:max_len-1, :]
+#     decoder_outputs = Dropout(dropout_rate)(decoder_embedding)
 
-    # Stack decoder layers
-    print("Stack decoder layers\n")
-    for i in range(num_decoder_layers):
-        decoder_layer_instance = decoder_layer(
-            ff_dim, embedding_dim, num_heads, dropout_rate, name=f"decoder_layer_{i}"
-        )
-        decoder_outputs = decoder_layer_instance([decoder_outputs, encoder_outputs])
+#     # Stack decoder layers
+#     print("Stack decoder layers\n")
+#     for i in range(num_decoder_layers):
+#         decoder_layer_instance = decoder_layer(
+#             ff_dim, embedding_dim, num_heads, dropout_rate, name=f"decoder_layer_{i}"
+#         )
+#         decoder_outputs = decoder_layer_instance([decoder_outputs, encoder_outputs])
 
-    # Final output layer
-    print("Final output layer\n")
-    outputs = Dense(english_vocab_size, activation="softmax")(decoder_outputs)
+#     # Final output layer
+#     print("Final output layer\n")
+#     outputs = Dense(english_vocab_size, activation="softmax")(decoder_outputs)
 
-    model = Model([encoder_inputs, decoder_inputs], outputs)
+#     model = Model([encoder_inputs, decoder_inputs], outputs)
 
-    return model
+#     return model
 
 
 
@@ -186,7 +183,7 @@ def evaluate_model(true_labels, predicted_labels, predict_probs, label_names):
 
 
 
-def transformer_model_training(encoder_input_data, decoder_input_data, arabic_vocab_size, english_vocab_size, max_len, decoder_target_data):
+def transformer_model_training(inputs, outputs, arabic_vocab_size, english_vocab_size, sequence_len):
     """CNN model training
 
     This function trains the CNN model and tests it on the dataset. Then, it will evaluate it and produce the accuracy and plot loss.
@@ -201,17 +198,31 @@ def transformer_model_training(encoder_input_data, decoder_input_data, arabic_vo
             
 
         # CNN model
-        model = transformer(
-            arabic_vocab_size=arabic_vocab_size,
-            english_vocab_size=english_vocab_size,
-            max_len=max_len,
-            embedding_dim=embedding_dim,
-            num_heads=8,
-            ff_dim=ff_dim,
-            num_encoder_layers = 6,
-            num_decoder_layers = 6,
-            dropout_rate=0.1
-        )
+        np.random.seed(42)
+        tf.random.set_seed(42)
+
+        # Parameters
+        embedding_dim = 256
+        num_heads = 8
+        # ff_dim = 2048
+        # dropout_rate = 0.1
+        print("Encoding Start!!")
+        encoder_input = Input(shape=(None,), dtype='int64', name='encoder_input')
+        x = TokenAndPositionEmbedding(arabic_vocab_size, sequence_len, embedding_dim)(encoder_input)
+        encoder_output = TransformerEncoder(embedding_dim, num_heads)(x)
+        encoder_seq_input = Input(shape=(None, embedding_dim))
+
+        
+        decoder_input = Input(shape=(None,), dtype='int64', name='decoder_input')
+        x = TokenAndPositionEmbedding(english_vocab_size, sequence_len, embedding_dim, mask_zero=True)(decoder_input)
+        x = TransformerDecoder(embedding_dim, num_heads)(x, encoder_seq_input)
+        #x = Dropout()(x)
+
+        decoder_output = Dense(english_vocab_size, activation='softmax')(x)
+        decoder = Model([decoder_input, encoder_seq_input], decoder_output)
+        decoder_output = decoder([decoder_input, encoder_output])
+
+        model = Model([encoder_input, decoder_input], decoder_output)
 
         # Output the model summary
         print(model.summary())
@@ -222,18 +233,23 @@ def transformer_model_training(encoder_input_data, decoder_input_data, arabic_vo
                 show_shapes=True,
                 show_layer_activations=True)
 
+
+        print("Compile the model")
         # Compile the CNN model
         model.compile(loss='sparse_categorical_crossentropy',
                 optimizer=Adam(),
                 metrics=['accuracy'])
         
 
-
+        print("Call backs")
+        callbacks=[tf.keras.callbacks.EarlyStopping(patience=5)]
         # Fit the CNN model
-        history = model.fit([encoder_input_data, decoder_input_data], 
-                            decoder_target_data,
+        print("Fit the model")
+        history = model.fit(inputs, 
+                            outputs,
+                            validation_split=0.2,
                             epochs=20,
-                            callbacks=[tf.keras.callbacks.EarlyStopping(patience=5)],
+                            callbacks=callbacks,
                             batch_size=32)
         
         # save the CNN model
@@ -243,7 +259,7 @@ def transformer_model_training(encoder_input_data, decoder_input_data, arabic_vo
         utils.plot_accuray_loss(history)
 
     except Exception as e:
-        print(f"Training and saving the CNN model failed. Error: {e}")
+        print(f"Training and saving the Transformer model failed. Error: {e}")
 
 
 def CNN_model_testing(test_dataset):
