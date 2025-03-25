@@ -203,7 +203,7 @@ def transformer_model_training(inputs, outputs, arabic_vocab_size, english_vocab
 
         # Parameters
         embedding_dim = 256
-        num_heads = 8
+        num_heads = 10
         # ff_dim = 2048
         # dropout_rate = 0.1
         print("Encoding Start!!")
@@ -229,7 +229,7 @@ def transformer_model_training(inputs, outputs, arabic_vocab_size, english_vocab
 
         # Plot the CNN model
         plot_model(model, 
-                to_file='./figures/Transformers_Model_test_1.png', 
+                to_file='./figures/Transformers_Model_test_2.png', 
                 show_shapes=True,
                 show_layer_activations=True)
 
@@ -253,7 +253,7 @@ def transformer_model_training(inputs, outputs, arabic_vocab_size, english_vocab
                             batch_size=32)
         
         # save the CNN model
-        utils.save_model(model, "Transformers_model_task_final_1")
+        utils.save_model(model, "Transformers_model_task_final_2")
 
         # Evaluate the model
         utils.plot_accuray_loss(history)
