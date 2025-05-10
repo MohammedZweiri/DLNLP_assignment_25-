@@ -6,3 +6,9 @@ transformers
 SentencePiece
 keras_nlp
 tensorflow
+torch
+tf-keras
+transformers[torch]
+sacremoses
+evaluate
+sacrebleu
