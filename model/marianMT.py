@@ -140,31 +140,59 @@ def marianMT_training(train_dataset, val_dataset, test_dataset):
 
 def model_evaluation(dataset):
 
-    model = MarianMTModel.from_pretrained("./marianMT/checkpoint-11500")
-    tokenizer = MarianTokenizer.from_pretrained("./marianMT/checkpoint-11500")
 
+    # Load the model and tokenizer
+    model = MarianMTModel.from_pretrained("./pretrained_model/checkpoint-11500")
+    tokenizer = MarianTokenizer.from_pretrained("./pretrained_model/checkpoint-11500")
+
+    # Perform model evalutation
     model.eval()
 
+    # Separate the test set to arabic and english text
     arabic_text = dataset["arabic"]
     english_text = dataset["english"]
 
+    # Set the batch size
     batch_size=16
     translations = []
 
+    # 
     for i in range(0, len(arabic_text), batch_size):
         batch=arabic_text[i:i+batch_size]
         inputs=tokenizer(batch, return_tensors="pt", padding=True, truncation=True)
 
+        # Perform translation test
         with torch.no_grad():
             translated = model.generate(**inputs)
 
         decoded=tokenizer.batch_decode(translated, skip_special_tokens=True)
         translations.extend(decoded)
 
-    metric = load("sacrebleu")
-    results = metric.compute(predictions=translations, references=[[ref] for ref in english_text])
+    # Compute BLEU score
+    print("Computing BLEU scores...")
+    bleu_metric = load("sacrebleu")
+    bleu_score = bleu_metric.compute(predictions=translations, references=[[ref] for ref in english_text])
+    print("Computing BLEU completed")
 
-    print(f"BLEU score on the test set for the Arabic-English translation is: {results['score']}")
+
+    # Compute TER score
+    print("Computing TER scores...")
+    ter_metric = load("ter")
+    ter_score = ter_metric.compute(predictions=translations, references=[[ref] for ref in english_text])
+    print("Computing TER completed")
+
+    # Compute METEOR score
+    print("Computing METEOR scores...")
+    meteor_metric = load("meteor")
+    meteor_score = meteor_metric.compute(predictions=translations, references=[[ref] for ref in english_text])
+    print("Computing METEOR completed")
+
+    print(f"BLEU score on the test set for the Arabic-English translation is: {bleu_score['score']}")
+    print(f"TER score on the test set for the Arabic-English translation is: {ter_score['score']}")
+    print(f"METEOR score on the test set for the Arabic-English translation is: {meteor_score['meteor']}")
+
+
+
 
 def translate():
 
