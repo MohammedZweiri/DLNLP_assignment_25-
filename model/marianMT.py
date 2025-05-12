@@ -1,218 +1,257 @@
+"""Accomplishing Arabic to English Machine Translation via marianMT pretrained model.
+
+    """
+
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from transformers import MarianTokenizer, MarianMTModel, Seq2SeqTrainer, Seq2SeqTrainingArguments, EarlyStoppingCallback, MarianConfig
+from transformers import MarianTokenizer, MarianMTModel, Seq2SeqTrainer, Seq2SeqTrainingArguments, EarlyStoppingCallback, MarianConfig, MBartForConditionalGeneration, MBart50TokenizerFast
 from datasets import Dataset
 from evaluate import load
 import re
 import matplotlib.pyplot as plt
 import torch
 
-def load_split_dataset(dataset):
-
-    # load the dataset
-    data = pd.read_csv(dataset, sep='\t', names=['english', 'arabic'])
-
-    # Drop any rows that contain NaN values
-    data.dropna(inplace=True)
-
-    # clean the data
-    data['arabic'] = data['arabic'].apply(clean_arabic)
-
-    # Split data
-    train_df, temp_df = train_test_split(data, test_size=0.2, random_state=42)
-    val_df, test_df = train_test_split(temp_df, test_size=0.5, random_state=42)
-
-    print("Training samples:", len(train_df))
-    print("Validation samples:", len(val_df))
-    print("Test samples:", len(test_df))
-
-    return train_df, val_df, test_df
-
-def clean_arabic(text):
-
-    # Remove diacritics
-    text = re.sub(r'[\u0617-\u061A\u064B-\u0652]', '', text)
-
-    # Remove tatweel (kashida)
-    text = re.sub(r'\u0640', '', text)
-
-    # Remove non-arabic characters
-    text = re.sub(r'[^\u0600-\u06FF\s]', '', text)
-
-    # Normalize arabic letters
-    text = re.sub(r'[إأآا]', 'ا', text)
-    text = re.sub(r'ى', 'ي', text)
-    text = re.sub(r'ؤ', 'ء', text)
-    text = re.sub(r'ئ', 'ء', text)
-    text = re.sub(r'ة', 'ه', text)
-
-    return text
 
 
 def tokenize_data(examples):
+    """
+    This function tokenizes both arabic and english texts data.
 
+    Args:
+        Datasets
+    Outputs:
+        tokenized datasets
+    """
 
-    model_name = "Helsinki-NLP/opus-mt-ar-en"
-    tokenizer = MarianTokenizer.from_pretrained(model_name)
+    try:
 
-    inputs = tokenizer(examples['arabic'], max_length=128, padding='max_length', truncation=True)
-    targets = tokenizer(examples['english'], max_length=128, padding='max_length', truncation=True)
+        # Load tokenizer
+        model_name = "Helsinki-NLP/opus-mt-ar-en"
+        tokenizer = MarianTokenizer.from_pretrained(model_name)
 
-    inputs['labels'] = targets['input_ids']
+        # Perform tokenization
+        inputs = tokenizer(examples['arabic'], max_length=128, padding='max_length', truncation=True)
+        targets = tokenizer(examples['english'], max_length=128, padding='max_length', truncation=True)
 
-    return inputs
-    # text_input = [str(i) for i in examples['arabic'].values]
-    # return tokenizer(text_input, text_target=examples['english'], truncation=True, padding="max_length", max_length=128)
+        inputs['labels'] = targets['input_ids']
+
+        return inputs
+
+    except Exception as e:
+        print(f"❌ Tokenization process failed. Error: {e}")
+
 
 
 def data_preparation(train_df, val_df, test_df):
+    """
+    This function prepares texts data for tokenization
 
-    train_dataset = Dataset.from_pandas(train_df)
-    val_dataset = Dataset.from_pandas(val_df)
-    test_dataset = Dataset.from_pandas(test_df)
+    Args:
+        Datasets
+    Outputs:
+        tokenized datasets
+    """
 
-    train_dataset = train_dataset.map(tokenize_data, batched=True)
-    val_dataset = val_dataset.map(tokenize_data, batched=True)
-    test_dataset = test_dataset.map(tokenize_data, batched=True)
+    try:
 
-    # train_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
-    # val_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
-    # test_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'labels'])
+        train_dataset = Dataset.from_pandas(train_df)
+        val_dataset = Dataset.from_pandas(val_df)
+        test_dataset = Dataset.from_pandas(test_df)
 
-    return train_dataset, val_dataset, test_dataset
+        train_dataset = train_dataset.map(tokenize_data, batched=True)
+        val_dataset = val_dataset.map(tokenize_data, batched=True)
+        test_dataset = test_dataset.map(tokenize_data, batched=True)
 
+        return train_dataset, val_dataset, test_dataset
 
-def marianMT_training(train_dataset, val_dataset, test_dataset):
-
-    #model_name = "Helsinki-NLP/opus-mt-ar-en"
-    model_name = "./marianMT/checkpoint-11500"
-    tokenizer = MarianTokenizer.from_pretrained(model_name)
-
-    # Load config and modify dropout
-    config = MarianConfig.from_pretrained(model_name)
-    model = MarianMTModel.from_pretrained(model_name)
-
-    training_args = Seq2SeqTrainingArguments(
-        output_dir="./results07",
-        #overwrite_output_dir=True,
-        eval_strategy="epoch",
-        # save_strategy="epoch",
-        metric_for_best_model="eval_loss",
-        learning_rate=1e-5,
-        per_device_train_batch_size=16,
-        per_device_eval_batch_size=16,
-        num_train_epochs=30,
-        load_best_model_at_end=False,
-        weight_decay=0.1,
-        logging_dir='./logs',
-        predict_with_generate=True,
-        save_total_limit=None
-    )
-
-    trainer = Seq2SeqTrainer(
-        model=model,
-        args=training_args,
-        train_dataset=train_dataset,
-        eval_dataset=val_dataset,
-        tokenizer=tokenizer,
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
-    )
-
-    trainer.train()
+    except Exception as e:
+        print(f"❌ Data preparation failed. Error: {e}")
 
 
-    print(model)
 
-    history = trainer.state.log_history
+def training_convergence(train_dataset, val_dataset):
+    """
+    This function  performs convergence training for marianMT
 
-    train_loss = [x['loss'] for x in history if 'loss' in x]
-    eval_loss = [x['eval_loss'] for x in history if 'eval_loss' in x]
+    Args:
+        Training and Validation datasets
+    Outputs:
+        
+    """
 
-    plt.plot(train_loss, label='Train Loss')
-    plt.plot(eval_loss, label='Validation Loss')
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.legend()
-    plt.grid()
-    plt.title("Training vs Validation Loss")
-    plt.savefig(f'./figures/MarianMTModel_accuracy_loss_1.png')
+    try:
+
+        model_name = "Helsinki-NLP/opus-mt-ar-en"
+
+        # Load marianMT tokenizer
+        tokenizer = MarianTokenizer.from_pretrained(model_name)
+
+        # Load marianMT model
+        model = MarianMTModel.from_pretrained(model_name)
+
+        # Training options
+        training_args = Seq2SeqTrainingArguments(
+            output_dir="./results01",
+            #overwrite_output_dir=True,
+            eval_strategy="epoch",
+            # save_strategy="epoch",
+            metric_for_best_model="eval_loss",
+            learning_rate=1e-2,
+            per_device_train_batch_size=16,
+            per_device_eval_batch_size=16,
+            num_train_epochs=20,
+            load_best_model_at_end=False,
+            weight_decay=0.1,
+            logging_dir='./logs',
+            predict_with_generate=True,
+            save_total_limit=1
+        )
+
+        # Training run options
+        trainer = Seq2SeqTrainer(
+            model=model,
+            args=training_args,
+            train_dataset=train_dataset,
+            eval_dataset=val_dataset,
+            tokenizer=tokenizer,
+            callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
+        )
+
+        # Train the model
+        trainer.train()
+
+        # Output the model struture
+        print(model)
+
+        # Plot the training and validation loss graph
+        history = trainer.state.log_history
+
+        train_loss = [x['loss'] for x in history if 'loss' in x]
+        eval_loss = [x['eval_loss'] for x in history if 'eval_loss' in x]
+
+        plt.plot(train_loss, label='Train Loss')
+        plt.plot(eval_loss, label='Validation Loss')
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.legend()
+        plt.grid()
+        plt.title("Training vs Validation Loss")
+        plt.savefig(f'./figures/mbartMTModel_accuracy_loss_1.png')
+
+    except Exception as e:
+        print(f"❌ Model convergence training failed. Error: {e}")
+
 
 
 def model_evaluation(dataset):
 
+    """
+    This function evaluation for marianMT using BLEU, TER and METEOR
 
-    # Load the model and tokenizer
-    model = MarianMTModel.from_pretrained("./pretrained_model/checkpoint-11500")
-    tokenizer = MarianTokenizer.from_pretrained("./pretrained_model/checkpoint-11500")
+    Args:
+        test datasets
+    Outputs:
+        model evaluation
 
-    # Perform model evalutation
-    model.eval()
+       """
+    
 
-    # Separate the test set to arabic and english text
-    arabic_text = dataset["arabic"]
-    english_text = dataset["english"]
+    try:
 
-    # Set the batch size
-    batch_size=16
-    translations = []
+        model = "./pretrained_model/checkpoint-11500"
+        # Load the model and tokenizer
+        model = MarianMTModel.from_pretrained()
+        tokenizer = MarianTokenizer.from_pretrained()
 
-    # 
-    for i in range(0, len(arabic_text), batch_size):
-        batch=arabic_text[i:i+batch_size]
-        inputs=tokenizer(batch, return_tensors="pt", padding=True, truncation=True)
+        # Perform model evalutation
+        model.eval()
 
-        # Perform translation test
-        with torch.no_grad():
-            translated = model.generate(**inputs)
+        # Separate the test set to arabic and english text
+        arabic_text = dataset["arabic"]
+        english_text = dataset["english"]
 
-        decoded=tokenizer.batch_decode(translated, skip_special_tokens=True)
-        translations.extend(decoded)
+        # Set the batch size
+        batch_size=16
+        translations = []
 
-    # Compute BLEU score
-    print("Computing BLEU scores...")
-    bleu_metric = load("sacrebleu")
-    bleu_score = bleu_metric.compute(predictions=translations, references=[[ref] for ref in english_text])
-    print("Computing BLEU completed")
+        # 
+        for i in range(0, len(arabic_text), batch_size):
+            batch=arabic_text[i:i+batch_size]
+            inputs=tokenizer(batch, return_tensors="pt", padding=True, truncation=True)
+
+            # Perform translation test
+            with torch.no_grad():
+                translated = model.generate(**inputs)
+
+            decoded=tokenizer.batch_decode(translated, skip_special_tokens=True)
+            translations.extend(decoded)
+
+        # Compute BLEU score
+        print("⏳ Computing BLEU scores...")
+        bleu_metric = load("sacrebleu")
+        bleu_score = bleu_metric.compute(predictions=translations, references=[[ref] for ref in english_text])
+        print("✅ Computing BLEU completed ✅")
 
 
-    # Compute TER score
-    print("Computing TER scores...")
-    ter_metric = load("ter")
-    ter_score = ter_metric.compute(predictions=translations, references=[[ref] for ref in english_text])
-    print("Computing TER completed")
+        # Compute TER score
+        print("⏳ Computing TER scores...")
+        ter_metric = load("ter")
+        ter_score = ter_metric.compute(predictions=translations, references=[[ref] for ref in english_text])
+        print("✅ Computing TER completed ✅")
 
-    # Compute METEOR score
-    print("Computing METEOR scores...")
-    meteor_metric = load("meteor")
-    meteor_score = meteor_metric.compute(predictions=translations, references=[[ref] for ref in english_text])
-    print("Computing METEOR completed")
+        # Compute METEOR score
+        print("⏳ Computing METEOR scores...")
+        meteor_metric = load("meteor")
+        meteor_score = meteor_metric.compute(predictions=translations, references=[[ref] for ref in english_text])
+        print("✅ Computing METEOR completed ✅")
 
-    print(f"BLEU score on the test set for the Arabic-English translation is: {bleu_score['score']}")
-    print(f"TER score on the test set for the Arabic-English translation is: {ter_score['score']}")
-    print(f"METEOR score on the test set for the Arabic-English translation is: {meteor_score['meteor']}")
+        print(f"BLEU score on the test set for the Arabic-English translation is: {bleu_score['score']}")
+        print(f"TER score on the test set for the Arabic-English translation is: {ter_score['score']}")
+        print(f"METEOR score on the test set for the Arabic-English translation is: {meteor_score['meteor']}")
+
+    except Exception as e:
+        print(f"❌ Model testing and evaluation failed. Error: {e}")
 
 
 
 
 def translate():
 
-    model = MarianMTModel.from_pretrained("./marianMT/checkpoint-11500")
-    tokenizer = MarianTokenizer.from_pretrained("./marianMT/checkpoint-11500")
+    """
+    This function  performs convergence training for marianMT
 
-    model.eval()
+    Args:
+        Training and Validation datasets
+    Outputs:
 
-    arabic_sentences = ["الطلاب يدرسون بجد استعدادًا للامتحانات النهائية.","الذكاء الاصطناعي يغير العالم بسرعة.",  "أطلقت الشركة منتجًا جديدًا يستخدم الذكاء الاصطناعي لتحسين تجربة المستخدم."]
+       """
 
-    for arabic_text in arabic_sentences:
+    try:
 
-        inputs=tokenizer(arabic_text, return_tensors="pt", padding=True, truncation=True)
+        # Load the trainined model
+        model = MarianMTModel.from_pretrained("./pretrained_model/checkpoint-11500")
+        tokenizer = MarianTokenizer.from_pretrained("./pretrained_model/checkpoint-11500")
 
-        with torch.no_grad():
-            translated = model.generate(**inputs, num_beams=5,
-        length_penalty=1.0,
-        early_stopping=True)
+        # Perform model evaluation
+        model.eval()
 
-        english_translator=tokenizer.batch_decode(translated, skip_special_tokens=True)[0]
+        # Make the model attempt to translate three arabic sentences. Their original english translation is included for sanity check.
+        arabic_sentences = ["الطلاب يدرسون بجد استعدادًا للامتحانات النهائية.","الذكاء الاصطناعي يغير العالم بسرعة.",  "أطلقت الشركة منتجًا جديدًا يستخدم الذكاء الاصطناعي لتحسين تجربة المستخدم."]
 
-        print(f"Arabic: {arabic_text}")
-        print(f"English: {english_translator}")
+        for arabic_text in arabic_sentences:
+
+            inputs=tokenizer(arabic_text, return_tensors="pt", padding=True, truncation=True)
+
+            with torch.no_grad():
+                translated = model.generate(**inputs, num_beams=5,
+            length_penalty=1.0,
+            early_stopping=True)
+
+            english_translator=tokenizer.batch_decode(translated, skip_special_tokens=True)[0]
+
+            print(f"Arabic: {arabic_text}")
+            print(f"English: {english_translator}")
+
+
+    except Exception as e:
+        print(f"❌ Arabic to English translation failed. Error: {e}")

@@ -5,64 +5,52 @@
 
 from src import utils
 import argparse
-from model import transformers
+from model import  marianMT
 import numpy as np
 
 
-def task():
-    """ Runs the CNN model for bloodMNIST dataset
+def task(decision):
+    """ Runs the model for Arabic-English Machine Translation task
 
 
     """
 
-    print("################ NN Transformers training is starting ################")
+    print("⏳ Arabic-English Machine Translation has started ⏳")
     print('\n')
 
-    max_len = 20
+    # Load, Clean and split the dataset
+    train_df, val_df, test_df = utils.load_split_dataset('dataset/ara_eng.txt')
 
-    # Download the dataset
-    df_train, df_test = utils.download_dataset()
+    # Data preparation and tokenization
+    train_dataset, val_dataset, test_dataset = marianMT.data_preparation(train_df, val_df, test_df)
 
-    # Clean and prepare english and arabic text
-    df_train['en'] = df_train['en'].apply(lambda row: utils.clean_english_text(row))
-    df_train['ar'] = df_train['ar'].apply(lambda row: utils.clean_and_prepare_text(row))
-
-    print(df_train)
-
-    # Scan the phrases
-    sequence_len = utils.scan_phrases(df_train['en'], df_train['ar'])
-
-    # Tokenization
-    inputs, outputs, arabic_vocab_size, english_vocab_size = utils.tokenization(df_train['en'], df_train['ar'], sequence_len)
-
-    # Model Training
-    transformers.transformer_model_training(inputs, outputs, arabic_vocab_size, english_vocab_size, sequence_len)
-    # Preprocess
-    #english_texts, arabic_texts = utils.preprocess_function(arabic_texts, english_texts)
-
-    # Tokenization
-   # encoder_input_data, decoder_input_data, decoder_target_data, arabic_vocab_size, english_vocab_size = utils.tokenization(english_texts, arabic_texts, max_len)
-    
-    # Model Training
-    #transformers.transformer_model_training(encoder_input_data, decoder_input_data, arabic_vocab_size, english_vocab_size, max_len, decoder_target_data)
-
-    # # Run the CNN model
-
-    # if decision == 'train':
-    #     CNN_B.CNN_model_training(train_dataset, validation_dataset, test_dataset)
+    # Run the model
+    if decision == 'train':
+         marianMT.training_convergence(train_dataset, val_dataset, test_dataset)
         
-    # elif decision == 'test':
-    #     CNN_B.CNN_model_testing(test_dataset)
+    elif decision == 'test':
+         marianMT.model_evaluation(test_dataset)
+         marianMT.translate()
 
-    # print('\n')
-    # print("################ Task B via CNN has finished ################")
+    print('\n')
+    print("✅ Arabic-English Machine Translation has finished ✅")
 
 
 if __name__ == "__main__":
+
     # Create Datasets folder
     utils.create_directory("figures")
 
-    task()
+    # Decision argument
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-d', '--decision', default='test',
+                        help ='select the task')
+    
+    args = parser.parse_args()
+    decision = args.decision
+
+
+    task(decision)
 
 
     
