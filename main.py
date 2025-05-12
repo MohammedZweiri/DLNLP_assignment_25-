@@ -6,7 +6,6 @@
 from src import utils
 import argparse
 from model import  marianMT
-import numpy as np
 
 
 def task(decision):
