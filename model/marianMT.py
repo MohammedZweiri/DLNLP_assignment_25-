@@ -3,11 +3,9 @@
     """
 
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from transformers import MarianTokenizer, MarianMTModel, Seq2SeqTrainer, Seq2SeqTrainingArguments, EarlyStoppingCallback, MarianConfig, MBartForConditionalGeneration, MBart50TokenizerFast
+from transformers import MarianTokenizer, MarianMTModel, Seq2SeqTrainer, Seq2SeqTrainingArguments, EarlyStoppingCallback
 from datasets import Dataset
 from evaluate import load
-import re
 import matplotlib.pyplot as plt
 import torch
 
@@ -160,8 +158,8 @@ def model_evaluation(dataset):
 
         model = "./pretrained_model/checkpoint-11500"
         # Load the model and tokenizer
-        model = MarianMTModel.from_pretrained()
-        tokenizer = MarianTokenizer.from_pretrained()
+        model = MarianMTModel.from_pretrained(model)
+        tokenizer = MarianTokenizer.from_pretrained(model)
 
         # Perform model evalutation
         model.eval()
