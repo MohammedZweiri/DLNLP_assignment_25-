@@ -237,9 +237,11 @@ def translate():
 
         # Make the model attempt to translate three arabic sentences. Their original english translation is included for sanity check.
         arabic_sentences = ["الطلاب يدرسون بجد استعدادًا للامتحانات النهائية.","الذكاء الاصطناعي يغير العالم بسرعة.",  "أطلقت الشركة منتجًا جديدًا يستخدم الذكاء الاصطناعي لتحسين تجربة المستخدم."]
+        english_sentences = ["The students are studying hard getting ready for the final exams", "Aritificial Intelligence is rapidly changing the world.", "A company has launched a new product aimed at improving user's experience"]
 
         for arabic_text in arabic_sentences:
 
+            i = 0
             inputs=tokenizer(arabic_text, return_tensors="pt", padding=True, truncation=True)
 
             with torch.no_grad():
@@ -249,8 +251,11 @@ def translate():
 
             english_translator=tokenizer.batch_decode(translated, skip_special_tokens=True)[0]
 
-            print(f"Arabic: {arabic_text}")
-            print(f"English: {english_translator}")
+            print(f"Arabic Sentence: {arabic_text}")
+            print(f"Original English Translation: {english_sentences[i]}")
+            print(f"MarianMT fine-tuned model English translation: {english_translator}")
+
+            i = i+1
 
 
     except Exception as e:
