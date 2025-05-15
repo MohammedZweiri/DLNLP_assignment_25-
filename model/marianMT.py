@@ -237,9 +237,10 @@ def translate():
         arabic_sentences = ["الطلاب يدرسون بجد استعدادًا للامتحانات النهائية.","الذكاء الاصطناعي يغير العالم بسرعة.",  "أطلقت الشركة منتجًا جديدًا يستخدم الذكاء الاصطناعي لتحسين تجربة المستخدم."]
         english_sentences = ["The students are studying hard getting ready for the final exams", "Aritificial Intelligence is rapidly changing the world.", "A company has launched a new product aimed at improving user's experience"]
 
+        i = 0
         for arabic_text in arabic_sentences:
 
-            i = 0
+            
             inputs=tokenizer(arabic_text, return_tensors="pt", padding=True, truncation=True)
 
             with torch.no_grad():
