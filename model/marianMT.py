@@ -10,6 +10,17 @@ import matplotlib.pyplot as plt
 import torch
 
 
+def print_gpu_info():
+    """
+    Print information about the available GPUs.
+    """
+    print("Number of GPUs:", torch.cuda.device_count())
+    if torch.cuda.is_available():
+        print("Current GPU index:", torch.cuda.current_device())
+        print("Current GPU name:", torch.cuda.get_device_name(torch.cuda.current_device()))
+    else:
+        print("No GPU available.")
+
 
 def tokenize_data(examples):
     """
@@ -78,6 +89,9 @@ def training_convergence(train_dataset, val_dataset):
     """
 
     try:
+
+        # Extract GPU information
+        print_gpu_info()
 
         model_name = "Helsinki-NLP/opus-mt-ar-en"
 
@@ -156,6 +170,9 @@ def model_evaluation(dataset):
 
     try:
 
+        # Extract GPU information
+        print_gpu_info()
+        
         # Load the model and tokenizer
         model = MarianMTModel.from_pretrained("./pretrained_model/checkpoint-11500")
         tokenizer = MarianTokenizer.from_pretrained("./pretrained_model/checkpoint-11500")
@@ -168,7 +185,7 @@ def model_evaluation(dataset):
         english_text = dataset["english"]
 
         # Set the batch size
-        batch_size=16
+        batch_size=32
         translations = []
 
         # 
