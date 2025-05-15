@@ -156,10 +156,9 @@ def model_evaluation(dataset):
 
     try:
 
-        model = "./pretrained_model/checkpoint-11500"
         # Load the model and tokenizer
-        model = MarianMTModel.from_pretrained(model)
-        tokenizer = MarianTokenizer.from_pretrained(model)
+        model = MarianMTModel.from_pretrained("./pretrained_model/checkpoint-11500")
+        tokenizer = MarianTokenizer.from_pretrained("./pretrained_model/checkpoint-11500")
 
         # Perform model evalutation
         model.eval()
