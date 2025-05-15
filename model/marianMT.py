@@ -172,7 +172,7 @@ def model_evaluation(dataset):
 
         # Extract GPU information
         print_gpu_info()
-        
+
         # Load the model and tokenizer
         model = MarianMTModel.from_pretrained("./pretrained_model/checkpoint-11500")
         tokenizer = MarianTokenizer.from_pretrained("./pretrained_model/checkpoint-11500")
@@ -185,7 +185,7 @@ def model_evaluation(dataset):
         english_text = dataset["english"]
 
         # Set the batch size
-        batch_size=32
+        batch_size=6
         translations = []
 
         # 
@@ -195,7 +195,9 @@ def model_evaluation(dataset):
 
             # Perform translation test
             with torch.no_grad():
-                translated = model.generate(**inputs)
+                translated = model.generate(**inputs, num_beams=5,
+            length_penalty=1.0,
+            early_stopping=True)
 
             decoded=tokenizer.batch_decode(translated, skip_special_tokens=True)
             translations.extend(decoded)
