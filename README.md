@@ -2,7 +2,7 @@
 
 There is one task for this assignment:
 1. Arabic to English Machine Translation.
-https://www.kaggle.com/datasets/samirmoustafa/arabic-to-english-translation-sentences
+https://www.kaggle.com/competitions/UJ-Arabic-translation-competition
 
 ## What are the folders and files
 1. Main folder contains main.py file, which runs other instances of python scripts.
