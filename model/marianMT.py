@@ -2,7 +2,6 @@
 
     """
 
-import pandas as pd
 from transformers import MarianTokenizer, MarianMTModel, Seq2SeqTrainer, Seq2SeqTrainingArguments, EarlyStoppingCallback
 from datasets import Dataset
 from evaluate import load
@@ -15,9 +14,11 @@ def print_gpu_info():
     Print information about the available GPUs.
     """
     print("Number of GPUs:", torch.cuda.device_count())
+
     if torch.cuda.is_available():
         print("Current GPU index:", torch.cuda.current_device())
         print("Current GPU name:", torch.cuda.get_device_name(torch.cuda.current_device()))
+
     else:
         print("No GPU available.")
 
