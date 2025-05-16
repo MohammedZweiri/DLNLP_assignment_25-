@@ -175,8 +175,8 @@ def model_evaluation(dataset):
         print_gpu_info()
 
         # Load the model and tokenizer
-        model = MarianMTModel.from_pretrained("./pretrained_model/checkpoint-11500")
-        tokenizer = MarianTokenizer.from_pretrained("./pretrained_model/checkpoint-11500")
+        model = MarianMTModel.from_pretrained("./A/pretrained_model/checkpoint-11500")
+        tokenizer = MarianTokenizer.from_pretrained("./A/pretrained_model/checkpoint-11500")
 
         # Perform model evalutation
         model.eval()
@@ -246,8 +246,8 @@ def translate():
     try:
 
         # Load the trainined model
-        model = MarianMTModel.from_pretrained("./pretrained_model/checkpoint-11500")
-        tokenizer = MarianTokenizer.from_pretrained("./pretrained_model/checkpoint-11500")
+        model = MarianMTModel.from_pretrained("./A/pretrained_model/checkpoint-11500")
+        tokenizer = MarianTokenizer.from_pretrained("./A/pretrained_model/checkpoint-11500")
 
         # Perform model evaluation
         model.eval()
