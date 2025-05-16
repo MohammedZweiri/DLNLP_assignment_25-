@@ -3,12 +3,12 @@
 
 """
 
-from src import utils
+from A.src import utils
 import argparse
-from model import  marianMT
+from A.model_script import  marianMT
 
 
-def task(decision):
+def task(decision, dataset_path):
     """ Runs the model for Arabic-English Machine Translation task
 
 
@@ -18,7 +18,7 @@ def task(decision):
     print('\n')
 
     # Load, Clean and split the dataset
-    train_df, val_df, test_df = utils.load_split_dataset('dataset/ara_eng.txt')
+    train_df, val_df, test_df = utils.load_split_dataset(dataset_path)
 
     # Data preparation and tokenization
     train_dataset, val_dataset, test_dataset = marianMT.data_preparation(train_df, val_df, test_df)
@@ -48,8 +48,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     decision = args.decision
 
+    dataset_path = './Datasets/ara_eng.txt'
 
-    task(decision)
+    task(decision, dataset_path)
 
 
     
