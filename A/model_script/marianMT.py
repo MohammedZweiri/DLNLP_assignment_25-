@@ -79,7 +79,12 @@ def data_preparation(train_df, val_df, test_df):
 
 
 
-def training_convergence(train_dataset, val_dataset):
+def training_convergence(train_dataset, val_dataset, 
+                        model_name="Helsinki-NLP/opus-mt-ar-en",
+                        learning_rate=1e-2,
+                        batch_size=16,
+                        epochs=20,
+                        weight_decay=0.1):
     """
     This function  performs convergence training for marianMT
 
@@ -94,8 +99,6 @@ def training_convergence(train_dataset, val_dataset):
         # Extract GPU information
         print_gpu_info()
 
-        model_name = "Helsinki-NLP/opus-mt-ar-en"
-
         # Load marianMT tokenizer
         tokenizer = MarianTokenizer.from_pretrained(model_name)
 
@@ -109,12 +112,12 @@ def training_convergence(train_dataset, val_dataset):
             eval_strategy="epoch",
             # save_strategy="epoch",
             metric_for_best_model="eval_loss",
-            learning_rate=1e-2,
-            per_device_train_batch_size=16,
-            per_device_eval_batch_size=16,
-            num_train_epochs=20,
+            learning_rate=learning_rate,
+            per_device_train_batch_size=batch_size,
+            per_device_eval_batch_size=batch_size,
+            num_train_epochs=epochs,
             load_best_model_at_end=False,
-            weight_decay=0.1,
+            weight_decay=weight_decay,
             logging_dir='./logs',
             predict_with_generate=True,
             save_total_limit=1
@@ -156,7 +159,7 @@ def training_convergence(train_dataset, val_dataset):
 
 
 
-def model_evaluation(dataset):
+def model_evaluation(dataset, model_path):
 
     """
     This function evaluation for marianMT using BLEU, TER and METEOR
@@ -175,8 +178,8 @@ def model_evaluation(dataset):
         print_gpu_info()
 
         # Load the model and tokenizer
-        model = MarianMTModel.from_pretrained("./A/pretrained_model/checkpoint-11500")
-        tokenizer = MarianTokenizer.from_pretrained("./A/pretrained_model/checkpoint-11500")
+        model = MarianMTModel.from_pretrained(model_path)
+        tokenizer = MarianTokenizer.from_pretrained(model_path)
 
         # Perform model evalutation
         model.eval()
@@ -189,7 +192,8 @@ def model_evaluation(dataset):
         batch_size=6
         translations = []
 
-        # 
+        print("⏳ Arabic-English Machine Translation tests is in progress... ⏳ \n")
+
         for i in range(0, len(arabic_text), batch_size):
             batch=arabic_text[i:i+batch_size]
             inputs=tokenizer(batch, return_tensors="pt", padding=True, truncation=True)
@@ -232,7 +236,7 @@ def model_evaluation(dataset):
 
 
 
-def translate():
+def translate(model_path):
 
     """
     This function  performs convergence training for marianMT
@@ -246,15 +250,15 @@ def translate():
     try:
 
         # Load the trainined model
-        model = MarianMTModel.from_pretrained("./A/pretrained_model/checkpoint-11500")
-        tokenizer = MarianTokenizer.from_pretrained("./A/pretrained_model/checkpoint-11500")
+        model = MarianMTModel.from_pretrained(model_path)
+        tokenizer = MarianTokenizer.from_pretrained(model_path)
 
         # Perform model evaluation
         model.eval()
 
         # Make the model attempt to translate three arabic sentences. Their original english translation is included for sanity check.
         arabic_sentences = ["الطلاب يدرسون بجد استعدادًا للامتحانات النهائية.","الذكاء الاصطناعي يغير العالم بسرعة.",  "أطلقت الشركة منتجًا جديدًا يستخدم الذكاء الاصطناعي لتحسين تجربة المستخدم."]
-        english_sentences = ["The students are studying hard getting ready for the final exams", "Aritificial Intelligence is rapidly changing the world.", "A company has launched a new product aimed at improving user's experience"]
+        english_sentences = ["The students are studying hard getting ready for the final exams", "Aritificial Intelligence is rapidly changing the world.", "A company has launched a new product that uses aritifical intelligence aimed at improving user's experience"]
 
         i = 0
         for arabic_text in arabic_sentences:
